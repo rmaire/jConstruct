@@ -118,7 +118,7 @@ public class Main implements OutputObserver {
             }
         });
 
-        server.setShellFactory(new ProcessShellFactory(new String[]{"cmd.exe"}));
+        server.setShellFactory(new ProcessShellFactory("cmd.exe"));
         ProcessShellCommandFactory pscf = new ProcessShellCommandFactory();
         server.setCommandFactory(pscf);
         server.start();

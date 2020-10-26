@@ -75,7 +75,7 @@ class MockSshServerBuilder {
                 new File(Files.createTempDir(), "hostkey.ser").toPath()
             )
         );
-        sshd.setUserAuthFactories(this.factories);
+//        sshd.setUserAuthFactories(this.factories);
         sshd.setPasswordAuthenticator(this.pwd.orNull());
         sshd.setPublickeyAuthenticator(this.pkey.orNull());
         return sshd;
@@ -90,7 +90,7 @@ class MockSshServerBuilder {
      */
     public MockSshServerBuilder usePasswordAuthentication(
         final String login, final String password) {
-        this.factories.add(new UserAuthPasswordFactory());
+//        this.factories.add(new UserAuthPasswordFactory());
         final PasswordAuthenticator auth =
             Mockito.mock(PasswordAuthenticator.class);
         Mockito.when(
@@ -110,7 +110,7 @@ class MockSshServerBuilder {
      * @return This instance of builder.
      */
     public MockSshServerBuilder usePublicKeyAuthentication() {
-        this.factories.add(new UserAuthPublicKeyFactory());
+//        this.factories.add(new UserAuthPublicKeyFactory());
         final PublickeyAuthenticator auth =
             Mockito.mock(PublickeyAuthenticator.class);
         Mockito.when(

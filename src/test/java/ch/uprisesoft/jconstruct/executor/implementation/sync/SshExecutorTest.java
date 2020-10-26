@@ -5,6 +5,7 @@
  */
 package ch.uprisesoft.jconstruct.executor.implementation.sync;
 
+import ch.uprisesoft.jconstruct.executor.ConsoleOutputObserver;
 import ch.uprisesoft.jconstruct.executor.Executor;
 import ch.uprisesoft.jconstruct.target.Target;
 import java.io.File;
@@ -24,6 +25,8 @@ import org.apache.sshd.server.SshServer;
 import org.apache.sshd.server.auth.password.PasswordAuthenticator;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
 import org.apache.sshd.server.session.ServerSession;
+import org.apache.sshd.server.shell.InteractiveProcessShellFactory;
+import org.apache.sshd.server.shell.ProcessShellCommandFactory;
 import org.apache.sshd.server.shell.ProcessShellFactory;
 import org.junit.After;
 
@@ -39,48 +42,68 @@ public class SshExecutorTest {
     @Before
     public void setUp() throws IOException {
 
-        /*server = new MockSshServerBuilder(2223)
-                .usePasswordAuthentication("tester", "testing")
-                .build();*/
-//        server = SshServer.setUpDefaultServer();
-//        server.setPort(2223);
-//        server.setHost("127.0.0.1");
-////        server.setKeyPairProvider(new SimpleGeneratorHostKeyProvider());
+//        server = new MockSshServerBuilder(2223)
+//                .usePasswordAuthentication("tester", "testing")
+//                .build();
+        server = SshServer.setUpDefaultServer();
+        server.setPort(3333);
+        server.setHost("127.0.0.1");
+
+        server.setKeyboardInteractiveAuthenticator(null);
+        server.setGSSAuthenticator(null);
+        server.setHostBasedAuthenticator(null);
+        server.setPublickeyAuthenticator(null);
+
+        server.setKeyPairProvider(new SimpleGeneratorHostKeyProvider());
 //        server.setKeyPairProvider(new SimpleGeneratorHostKeyProvider(new File("hostkey.ser").toPath()));
-//        server.setPasswordAuthenticator(new PasswordAuthenticator() {
-//            @Override
-//            public boolean authenticate(String u, String p, ServerSession s) {
-//                return true;
-//            }
-//        });
-//
-//        server.setShellFactory(new ProcessShellFactory(new String[]{"bash"}));
-//        server.start();
+        server.setPasswordAuthenticator(new PasswordAuthenticator() {
+            @Override
+            public boolean authenticate(String u, String p, ServerSession s) {
+                return true;
+            }
+        });
+
+        server.setShellFactory(null);
+        
+        server.setCommandFactory(new ProcessShellCommandFactory());
+
+
+        server.start();
+        server.open();
+
     }
 
     @After
     public void tearDown() throws IOException {
-//        server.stop();
+        server.stop();
     }
 
-    //@Test
+    @Test
     public void testConnect() throws IOException {
-        
+
+        if (server.isStarted()) {
+            System.out.println("===================");
+            System.out.println("Started");
+            System.out.println("===================");
+        }
+
         Logger minaLogger = Logger.getLogger("org.apache.mina");
 
         minaLogger.setLevel(Level.DEBUG);
 
+        Logger.getRootLogger().setLevel(Level.DEBUG);
 
         target = new Target.Builder()
                 .withHost("127.0.0.1")
                 .withUsername("tester")
                 .withPassword("testing")
-                .withPort(2223)
+                .withPort(3333)
                 .build();
 
         executor = new SshExecutor.Builder()
                 .withTarget(target)
                 .withCommand("ls")
+                .register(new ConsoleOutputObserver(true, true))
                 .build();
         executor.runCommands();
 
