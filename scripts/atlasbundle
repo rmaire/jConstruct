@@ -1,0 +1,269 @@
+#!/bin/bash
+
+usage () {
+    echo "usage: atlasbundle [-f config-file-name] [-b bundle-name] [-d db-name] [-p password] [-j jira-name:version ] [-c confluence-name:version] [-jira2 name:version] [-confluence2 name:version] [-h] <command>"
+    echo "   ";
+    echo "  -b | --bundle-name      : Name of the whole bundle";
+    echo "  -d | --db-name          : Name and Hostname of the database";
+    echo "  -p | --db-password      : Password for the database and all instance accounts";
+    echo "  -j | --jira             : Name and version of the first Jira instance";
+    echo "  -c | --confluence       : Name and version of the first Confluence instance";
+    echo "  --jira2                 : Name and version of the second Jira instance";
+    echo "  --confluence2           : Name and version of the second Confluence instance";
+    echo "  -h | --help             : This message";
+    echo "  -f | --file             : Reads the file as configuration";
+    echo "   ";
+    echo "  command                 : One of the following commands";
+    echo "      create              : Creates a private Docker network and all configured containers";
+    echo "      stop                : Stops all configured containers";
+    echo "      start               : Starts all configured containers";
+    echo "      remove              : Removes all configured containers and the network";
+}
+
+args=()
+
+while [ "$1" != "" ]
+do
+    case "$1" in
+        -f|--file)
+        FILE="$2"
+        shift
+        shift
+        ;;
+        -b|--bundle-name)
+        BUNDLE_NAME="$2"
+        shift
+        shift
+        ;;
+        -d|--db-name)
+        DB_HOSTNAME="$2"
+        shift
+        shift
+        ;;
+        -p|--db-password)
+        DB_PW="$2"
+        shift
+        shift
+        ;;
+        -j|--jira)
+        JIRA_1_HOSTNAME="$(cut -d':' -f1 <<<"$2")"
+        JIRA_1_VERSION="$(cut -d':' -f2 <<<"$2")"
+        shift
+        shift
+        ;;
+        -c|--confluence)
+        CONFLUENCE_1_HOSTNAME="$(cut -d':' -f1 <<<"$2")"
+        CONFLUENCE_1_VERSION="$(cut -d':' -f2 <<<"$2")"
+        shift
+        shift
+        ;;
+        --jira2)
+        JIRA_2_HOSTNAME="$(cut -d':' -f1 <<<"$2")"
+        JIRA_2_VERSION="$(cut -d':' -f2 <<<"$2")"
+        shift
+        shift
+        ;;
+        --confluence2)
+        CONFLUENCE_2_HOSTNAME="$(cut -d':' -f1 <<<"$2")"
+        CONFLUENCE_2_VERSION="$(cut -d':' -f2 <<<"$2")"
+        shift
+        shift
+        ;;
+        -h|--help)
+        usage
+        exit
+        ;;
+        *)
+        args+=("$1")
+        shift
+        ;;
+    esac
+done
+
+set -- "${args[@]}"
+
+if [[ -n "$FILE" ]]; then
+    source "$FILE";
+fi
+
+COMMAND="${args[0]}"
+
+if [[ -z "${COMMAND}" ]]; then
+    echo "Missing command"
+    echo "    "
+    usage
+    exit;
+fi
+
+create_bundle () {
+    docker network create --driver bridge $BUNDLE_NAME
+
+    if [ -n "${DB_HOSTNAME}" ]; then
+        docker run -d \
+        -e POSTGRES_PASSWORD=$DB_PW \
+        -e "SERVICE_TAGS=postgres" \
+        --network $BUNDLE_NAME \
+        --hostname $DB_HOSTNAME \
+        --name $DB_HOSTNAME postgres:9.5.19
+
+        sleep 5
+
+        if [ -n "${CONFLUENCE_1_HOSTNAME}" ]; then
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE USER $CONFLUENCE_1_HOSTNAME PASSWORD '$DB_PW'"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE DATABASE $CONFLUENCE_1_HOSTNAME WITH ENCODING='UTF8' OWNER=$CONFLUENCE_1_HOSTNAME CONNECTION LIMIT=-1"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $CONFLUENCE_1_HOSTNAME TO $CONFLUENCE_1_HOSTNAME"
+        fi
+
+        if [ -n "${CONFLUENCE_2_HOSTNAME}" ]; then
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE USER $CONFLUENCE_2_HOSTNAME PASSWORD '$DB_PW'"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE DATABASE $CONFLUENCE_2_HOSTNAME WITH ENCODING='UTF8' OWNER=$CONFLUENCE_2_HOSTNAME CONNECTION LIMIT=-1"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $CONFLUENCE_2_HOSTNAME TO $CONFLUENCE_2_HOSTNAME"
+        fi
+
+        if [ -n "${JIRA_1_HOSTNAME}" ]; then
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE USER $JIRA_1_HOSTNAME PASSWORD '$DB_PW'"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE DATABASE $JIRA_1_HOSTNAME WITH ENCODING 'UNICODE' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $JIRA_1_HOSTNAME TO $JIRA_1_HOSTNAME"
+        fi
+
+        if [ -n "${JIRA_2_HOSTNAME}" ]; then
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE USER $JIRA_2_HOSTNAME PASSWORD '$DB_PW'"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "CREATE DATABASE $JIRA_2_HOSTNAME WITH ENCODING 'UNICODE' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+            docker run -it --rm --network $BUNDLE_NAME -e PGPASSWORD=$DB_PW postgres:9.5.19  psql -w -h $DB_HOSTNAME -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $JIRA_2_HOSTNAME TO $JIRA_1_HOSTNAME"
+        fi
+    fi
+
+    if [ -n "${CONFLUENCE_1_HOSTNAME}" ]; then
+        docker run -d -p 8090 \
+        -e "SERVICE_TAGS=atlassian,confluence,$BUNDLE_NAME,traefik.enable=true,traefik.frontend.entryPoints=https,traefik.frontend.passHostHeader=true" \
+        -e SERVICE_NAME=$CONFLUENCE_1_HOSTNAME \
+        -e X_PROXY_NAME="$CONFLUENCE_1_HOSTNAME.throwaway.ch" \
+        -e X_PROXY_PORT='443' \
+        -e X_PROXY_SCHEME='https' \
+        -e X_MINIMUM_MEMORY='1024m' \
+        -e X_MAXIMUM_MEMORY='3072m' \
+        --hostname $CONFLUENCE_1_HOSTNAME \
+        --name $CONFLUENCE_1_HOSTNAME zuara/confluence:$CONFLUENCE_1_VERSION
+
+        docker network connect $BUNDLE_NAME $CONFLUENCE_1_HOSTNAME
+    fi
+
+    if [ -n "${CONFLUENCE_2_HOSTNAME}" ]; then
+        docker run -d -p 8090 \
+        -e "SERVICE_TAGS=atlassian,confluence,$BUNDLE_NAME,traefik.enable=true,traefik.frontend.entryPoints=https,traefik.frontend.passHostHeader=true" \
+        -e SERVICE_NAME=$CONFLUENCE_2_HOSTNAME \
+        -e X_PROXY_NAME="$CONFLUENCE_2_HOSTNAME.throwaway.ch" \
+        -e X_PROXY_PORT='443' \
+        -e X_PROXY_SCHEME='https' \
+        -e X_MINIMUM_MEMORY='1024m' \
+        -e X_MAXIMUM_MEMORY='3072m' \
+        --hostname $CONFLUENCE_2_HOSTNAME \
+        --name $CONFLUENCE_2_HOSTNAME zuara/confluence:$CONFLUENCE_2_VERSION
+
+        docker network connect $BUNDLE_NAME $CONFLUENCE_2_HOSTNAME
+    fi
+
+    if [ -n "${JIRA_1_HOSTNAME}" ]; then
+        docker run -d -p 8080 \
+        -e "SERVICE_TAGS=atlassian,jira,$BUNDLE_NAME,traefik.enable=true,traefik.frontend.entryPoints=https,traefik.frontend.passHostHeader=true" \
+        -e SERVICE_NAME=$JIRA_1_HOSTNAME \
+        -e X_PROXY_NAME="$JIRA_1_HOSTNAME.zuara.io" \
+        -e X_PROXY_PORT='443' \
+        -e X_PROXY_SCHEME='https' \
+        -e X_MINIMUM_MEMORY='1024m' \
+        -e X_MAXIMUM_MEMORY='3072m' \
+        --hostname $JIRA_1_HOSTNAME \
+        --name $JIRA_1_HOSTNAME zuara/jira:$JIRA_1_VERSION
+
+        docker network connect $BUNDLE_NAME $JIRA_1_HOSTNAME
+    fi
+
+    if [ -n "${JIRA_2_HOSTNAME}" ]; then
+        docker run -d -p 8080 \
+        -e "SERVICE_TAGS=atlassian,jira,$BUNDLE_NAME,traefik.enable=true,traefik.frontend.entryPoints=https,traefik.frontend.passHostHeader=true" \
+        -e SERVICE_NAME=$JIRA_2_HOSTNAME \
+        -e X_PROXY_NAME="$JIRA_2_HOSTNAME.zuara.io" \
+        -e X_PROXY_PORT='443' \
+        -e X_PROXY_SCHEME='https' \
+        -e X_MINIMUM_MEMORY='1024m' \
+        -e X_MAXIMUM_MEMORY='3072m' \
+        --hostname $JIRA_2_HOSTNAME \
+        --name $JIRA_2_HOSTNAME zuara/jira:$JIRA_2_VERSION
+
+        docker network connect $BUNDLE_NAME $JIRA_2_HOSTNAME
+    fi
+}
+
+stop_bundle() {
+    if [ -n "${CONFLUENCE_1_HOSTNAME}" ]; then
+        docker stop $CONFLUENCE_1_HOSTNAME
+    fi
+    if [ -n "${CONFLUENCE_2_HOSTNAME}" ]; then
+        docker stop $CONFLUENCE_2_HOSTNAME
+    fi
+    if [ -n "${JIRA_1_HOSTNAME}" ]; then
+        docker stop $JIRA_1_HOSTNAME
+    fi
+    if [ -n "${JIRA_2_HOSTNAME}" ]; then
+        docker stop $JIRA_2_HOSTNAME
+    fi
+    if [ -n "${DB_HOSTNAME}" ]; then
+        docker stop $DB_HOSTNAME
+    fi
+}
+
+start_bundle() {
+    if [ -n "${DB_HOSTNAME}" ]; then
+        docker start $DB_HOSTNAME
+        sleep 5
+    fi
+    if [ -n "${CONFLUENCE_1_HOSTNAME}" ]; then
+        docker start $CONFLUENCE_1_HOSTNAME
+    fi
+    if [ -n "${CONFLUENCE_2_HOSTNAME}" ]; then
+        docker start $CONFLUENCE_2_HOSTNAME
+    fi
+    if [ -n "${JIRA_1_HOSTNAME}" ]; then
+        docker start $JIRA_1_HOSTNAME
+    fi
+    if [ -n "${JIRA_2_HOSTNAME}" ]; then
+        docker start $JIRA_2_HOSTNAME
+    fi
+}
+
+remove_bundle() {
+    if [ -n "${CONFLUENCE_1_HOSTNAME}" ]; then
+        docker rm --force $CONFLUENCE_1_HOSTNAME
+    fi
+    if [ -n "${CONFLUENCE_2_HOSTNAME}" ]; then
+        docker rm --force $CONFLUENCE_2_HOSTNAME
+    fi
+    if [ -n "${JIRA_1_HOSTNAME}" ]; then
+        docker rm --force $JIRA_1_HOSTNAME
+    fi
+    if [ -n "${JIRA_2_HOSTNAME}" ]; then
+        docker rm --force $JIRA_2_HOSTNAME
+    fi
+    if [ -n "${DB_HOSTNAME}" ]; then
+        docker rm --force $DB_HOSTNAME
+    fi
+    docker network rm $BUNDLE_NAME
+}
+
+case $COMMAND in
+     start)
+          start_bundle
+          ;;
+     stop)
+          stop_bundle
+          ;;
+     remove)
+          remove_bundle
+          ;;
+     create)
+          create_bundle
+          ;;
+     *)
+          echo "Invalid command: $COMMAND"
+          ;;
+esac
