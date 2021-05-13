@@ -16,7 +16,7 @@ Vagrant.configure("2") do |config|
         linux.vm.provider "virtualbox" do |v|
             v.memory = 2048
             v.cpus = 2
-            v.gui = true
+            v.gui = false
         end
 
         linux.vm.provision "file", source: "key/public/id_test.pub", destination: "~/.ssh/authorized_keys"

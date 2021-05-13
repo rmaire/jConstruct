@@ -25,7 +25,7 @@ public class SshExecutorTest {
     public SshExecutorTest() {
     }
 
-//    @Test
+    @Test
     public void testConnect() throws IOException {
         
         Logger.getRootLogger().setLevel(Level.ALL);
@@ -92,7 +92,7 @@ public class SshExecutorTest {
 
         executor = new SshExecutor.Builder()
                 .withTarget(target)
-                .withUpload("Blablubb", "")
+                .withUpload("Test It!", "testit.txt")
                 .register(new ConsoleOutputObserver(true, true))
                 .build();
         executor.runCommands();

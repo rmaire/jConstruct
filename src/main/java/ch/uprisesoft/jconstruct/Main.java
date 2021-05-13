@@ -9,7 +9,6 @@ import ch.uprisesoft.jconstruct.executor.implementation.async.AsyncExecutor;
 import ch.uprisesoft.jconstruct.executor.implementation.sync.LocalExecutor;
 import ch.uprisesoft.jconstruct.executor.implementation.sync.SshExecutor;
 import ch.uprisesoft.jconstruct.executor.implementation.sync.WinRMExecutor;
-import ch.uprisesoft.jconstruct.forms.FormAutomator;
 import ch.uprisesoft.jconstruct.target.Target;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
@@ -83,14 +82,16 @@ public class Main implements OutputObserver {
 //            System.out.println("Etwas ging schief: " + e.getMessage());
 //        }
 
-//        new Main().runLocal();
+        new Main().runLocal();
         //new Main().runUi4j();
-//        new Main().runSsh();
+        new Main().runSsh();
 //        new Main().runFormAutomator();
 //        new Main().runWinRM();
 //            new Main().startVagrant();
 //            new Main().stopVagrant();
-        new Main().testMinaLogger();
+//        new Main().testMinaLogger();
+        new Main().runSshKeyString();
+        new Main().uploadLinux();
         System.exit(0);
     }
 
@@ -100,6 +101,8 @@ public class Main implements OutputObserver {
     }
 
     private void testMinaLogger() throws IOException, InterruptedException {
+        // https://github.com/keathmilligan/sshdtest
+        // https://keathmilligan.net/embedding-apache-mina-sshd
         Logger.getRootLogger().setLevel(Level.ALL);
 
         SshServer server;
@@ -109,7 +112,8 @@ public class Main implements OutputObserver {
         server = SshServer.setUpDefaultServer();
         server.setPort(2223);
         server.setHost("0.0.0.0");
-        server.setKeyPairProvider(new SimpleGeneratorHostKeyProvider(new File("hostkey.ser").toPath()));
+        //server.setKeyPairProvider(new SimpleGeneratorHostKeyProvider(new File("hostkey.ser").toPath()));
+        server.setKeyPairProvider(new SimpleGeneratorHostKeyProvider());
         
         server.setPasswordAuthenticator(new PasswordAuthenticator() {
             @Override
@@ -118,10 +122,10 @@ public class Main implements OutputObserver {
             }
         });
 
-        server.setShellFactory(new ProcessShellFactory("cmd.exe"));
-        ProcessShellCommandFactory pscf = new ProcessShellCommandFactory();
-        server.setCommandFactory(pscf);
-        server.start();
+        server.setShellFactory(new ProcessShellFactory("c:\\Windows\\system32\\cmd.exe"));
+//        ProcessShellCommandFactory pscf = new ProcessShellCommandFactory();
+//        server.setCommandFactory(pscf);
+//        server.start();
         
 //        while(true) {
 //            Thread.sleep(1000000);
@@ -230,11 +234,6 @@ public class Main implements OutputObserver {
         } catch (Exception e) {
             System.out.println(e.toString());
         }
-    }
-
-    public void runFormAutomator() throws FileNotFoundException, IOException, InterruptedException {
-        FormAutomator fa = new FormAutomator(new File(getClass().getClassLoader().getResource("jira.properties").getFile()), "http://mycloud.vm:8080");
-        fa.execute();
     }
 
     public void runLocal() throws InterruptedException {

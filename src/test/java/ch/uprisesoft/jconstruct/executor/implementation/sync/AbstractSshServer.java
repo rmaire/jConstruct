@@ -8,20 +8,10 @@ package ch.uprisesoft.jconstruct.executor.implementation.sync;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import org.apache.sshd.common.NamedFactory;
-import org.apache.sshd.common.file.nativefs.NativeFileSystemFactory;
-import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory;
-import org.apache.sshd.common.session.Session;
-import org.apache.sshd.common.session.SessionContext;
 import org.apache.sshd.server.SshServer;
 import org.apache.sshd.server.auth.password.PasswordAuthenticator;
-import org.apache.sshd.server.command.Command;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
-import org.apache.sshd.server.scp.ScpCommandFactory;
 import org.apache.sshd.server.session.ServerSession;
-import org.apache.sshd.server.shell.ProcessShellCommandFactory;
 
 /**
  *
@@ -86,6 +76,7 @@ public abstract class AbstractSshServer {
     
     public void stop() throws IOException{
         server.stop();
+        testFolder.toFile().delete();
     }
     
     public boolean isStarted() {
